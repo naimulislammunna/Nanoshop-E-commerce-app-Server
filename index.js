@@ -40,6 +40,11 @@ async function run() {
         res.send(result)
     })
 
+    app.get('/users', ()=>{
+        const result = usersCollection.find().toArray();
+        res.send(result);
+    })
+
   } finally {
 
   }
