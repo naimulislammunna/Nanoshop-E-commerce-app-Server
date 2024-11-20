@@ -2,11 +2,15 @@ const express = require("express");
 const cors = require("cors");
 const port = process.env.port || 4000;
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+  })
+);
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -17,7 +21,6 @@ app.listen(port, () => {
   console.log("server is runnig on port", port);
 });
 
-
 // jwt inteartion
 app.post("/jwt", (req, res) => {
   const email = req.body;
@@ -26,8 +29,6 @@ app.post("/jwt", (req, res) => {
     res.send({ token });
   }
 });
-
-
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@express-explore.use1c.mongodb.net/?retryWrites=true&w=majority&appName=express-explore`;
 
@@ -45,48 +46,57 @@ const productsCollection = client.db("nano-shop").collection("products");
 
 // midleware
 const verifyToken = (req, res, next) => {
-    const authorization = req.headers.authorization;
-    // console.log(authorization);
-    if (!authorization) {
-      return res.send({ massege: "unathorized user" });
-    }
-    const token = authorization.split(" ")[1];
-    if (!token) {
-      return res.send({ massege: "no token" });
-    }
-    jwt.verify(token, process.env.TOKEN_KEY, (err, decoded) => {
-      if (err) {
-        return res.send({ massege: "unathorized token" });
-      }
-      req.decoded = decoded;
-      next();
-    });
-  };
-  
-  const verifySeller = async(req, res, next)=>{
-      const email= req.decoded.email;
-      const query = {email: email}
-      const response = await usersCollection.findOne(query);
-      console.log(response);
-      
-      if(response?.role !== 'seller'){
-          return res.send({ massege: "user is not seller" })
-      }
-      next();
-      
+  const authorization = req.headers.authorization;
+  console.log(authorization);
+  if (!authorization) {
+    return res.send({ massege: "unathorized user" });
   }
+  const token = authorization.split(" ")[1];
+  if (!token) {
+    return res.send({ massege: "no token" });
+  }
+  jwt.verify(token, process.env.TOKEN_KEY, (err, decoded) => {
+    if (err) {
+      return res.send({ massege: "unathorized token" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+};
+
+const verifySeller = async (req, res, next) => {
+  const email = req.decoded.email;
+  console.log("email", email);
+
+  const query = { email: email };
+  const response = await usersCollection.findOne(query);
+  console.log(response);
+
+  if (response?.role !== "seller") {
+    return res.send({ massege: "user is not seller" });
+  }
+  next();
+};
 
 async function run() {
   try {
-
     app.post("/users", (req, res) => {
       const body = req.body;
       const result = usersCollection.insertOne(body);
       res.send(result);
     });
 
-    app.get("/users", () => {
-      const result = usersCollection.find().toArray();
+    // app.get("/users", () => {
+    //   const result = usersCollection.find().toArray();
+    //   res.send(result);
+    // });
+
+    app.get("/user", async (req, res) => {
+      const email = req.query.email;
+      // console.log(email);
+
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
       res.send(result);
     });
 
@@ -126,9 +136,39 @@ async function run() {
       res.send({ result, brandList, categoryList });
     });
 
-    app.post("/add-product", verifyToken, verifySeller, (req, res) => {
-        res.send({massege: 'token verifyed', red: req.body})
+    //get products by id
+    app.get("/all-products/:id", async (req, res) => {
+      const id = req.params.id;
+      let query = {};
+      if (id) {
+        query = { _id: new ObjectId(id) };
+      }
+
+      const result = await productsCollection.findOne(query);
+      res.send(result);
     });
+
+    // product add to db
+    app.post("/add-product", verifyToken, verifySeller, async(req, res) => {
+        const body = req.body;
+
+        const result = await productsCollection.insertOne(body)
+        res.send(result);
+    });
+
+    app.get("/my-products", async (req, res) => {
+        const email = req.query.email;
+        let query = {};
+        if (email) {
+          query = { sellerEmail: email };
+        }
+  
+        const result = await productsCollection.find(query).toArray();
+        res.send(result);
+      });
+
+
+
   } finally {
   }
 }
