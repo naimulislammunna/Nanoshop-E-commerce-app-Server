@@ -86,8 +86,39 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users", () => {
-      const result = usersCollection.find().toArray();
+    app.get("/users", async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+      console.log(result);
+    });
+
+    app.patch("/users/:id", async (req, res) => {
+      const id = req.params.id;
+
+      let query = {};
+      if (id) {
+        query = { _id: new ObjectId(id) };
+      }
+
+      const updateDoc = {
+        $set: {
+          role: "seller",
+        },
+      };
+
+      const result = await usersCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+
+      let query = {};
+      if (id) {
+        query = { _id: new ObjectId(id) };
+      }
+
+      const result = await usersCollection.deleteOne(query);
       res.send(result);
     });
 
@@ -149,37 +180,34 @@ async function run() {
     });
 
     // product add to db
-    app.post("/add-product", verifyToken, verifySeller, async(req, res) => {
-        const body = req.body;
+    app.post("/add-product", verifyToken, verifySeller, async (req, res) => {
+      const body = req.body;
 
-        const result = await productsCollection.insertOne(body)
-        res.send(result);
+      const result = await productsCollection.insertOne(body);
+      res.send(result);
     });
 
     app.get("/my-products", async (req, res) => {
-        const email = req.query.email;
-        let query = {};
-        if (email) {
-          query = { sellerEmail: email };
-        }
-  
-        const result = await productsCollection.find(query).toArray();
-        res.send(result);
-      });
+      const email = req.query.email;
+      let query = {};
+      if (email) {
+        query = { sellerEmail: email };
+      }
+
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
 
     app.delete("/my-products/:id", async (req, res) => {
-        const id = req.params.id;
-        let query = {};
-        if (id) {
-          query = { _id: new ObjectId(id)};
-        }
-  
-        const result = await productsCollection.deleteOne(query);
-        res.send(result);
-      });
+      const id = req.params.id;
+      let query = {};
+      if (id) {
+        query = { _id: new ObjectId(id) };
+      }
 
-
-
+      const result = await productsCollection.deleteOne(query);
+      res.send(result);
+    });
   } finally {
   }
 }
