@@ -47,11 +47,13 @@ const productsCollection = client.db("nano-shop").collection("products");
 // midleware
 const verifyToken = (req, res, next) => {
   const authorization = req.headers.authorization;
-  console.log(authorization);
+//   console.log(authorization);
   if (!authorization) {
     return res.send({ massege: "unathorized user" });
   }
   const token = authorization.split(" ")[1];
+  console.log("token", token);
+  
   if (!token) {
     return res.send({ massege: "no token" });
   }
@@ -66,14 +68,24 @@ const verifyToken = (req, res, next) => {
 
 const verifySeller = async (req, res, next) => {
   const email = req.decoded.email;
-  console.log("email", email);
 
   const query = { email: email };
   const response = await usersCollection.findOne(query);
-  console.log(response);
 
   if (response?.role !== "seller") {
     return res.send({ massege: "user is not seller" });
+  }
+  next();
+};
+
+const verifyAdmin = async (req, res, next) => {
+  const email = req.decoded.email;
+
+  const query = { email: email };
+  const response = await usersCollection.findOne(query);
+
+  if (response?.role !== "admin") {
+    return res.send({ massege: "user is not Admin" });
   }
   next();
 };
@@ -89,10 +101,10 @@ async function run() {
     app.get("/users", async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
-      console.log(result);
+    //   console.log(result);
     });
 
-    app.patch("/users/:id", async (req, res) => {
+    app.patch("/users-role/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
 
       let query = {};
@@ -110,7 +122,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/users/:id", async (req, res) => {
+    app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
 
       let query = {};
@@ -206,6 +218,21 @@ async function run() {
       }
 
       const result = await productsCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.put("/update-product/:id", async (req, res) => {
+      const id = req.params.id;
+      const body = req.body;
+      let query = {};
+      if (id) {
+        query = { _id: new ObjectId(id) };
+      }
+      const updateDoc = {
+        $set: body
+      };
+
+      const result = await productsCollection.updateOne(query, updateDoc);
       res.send(result);
     });
   } finally {
