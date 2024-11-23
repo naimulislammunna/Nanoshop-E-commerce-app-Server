@@ -235,6 +235,38 @@ async function run() {
       const result = await productsCollection.updateOne(query, updateDoc);
       res.send(result);
     });
+
+    app.patch("/update-wishlist", async (req, res) => {
+    const {userEmail, productId} = req.body;
+      let query = {};
+      if (userEmail) {
+        query = { email: userEmail };
+      }
+      const updateDoc = {
+        $addToSet: {wishlist: new ObjectId(String(productId))}
+      };
+
+      const result = await usersCollection.updateOne(query, updateDoc, {upsert: true});
+      res.send(result);
+    });
+
+    app.get("/my-wishlist/:userId", async (req, res) => {
+        const id = req.params.userId;
+        console.log('id', id);
+        
+
+        const user = await usersCollection.findOne({_id: new ObjectId(String(id))}, );
+
+        if(!user){
+           return res.send({message: "user not found"})
+        }
+        
+        const wishlist = await productsCollection.find({_id: {$in: user.wishlist || []}}).toArray();
+
+        res.send(wishlist);
+      });
+
+
   } finally {
   }
 }
