@@ -21,7 +21,7 @@ app.listen(port, () => {
   console.log("server is runnig on port", port);
 });
 
-// jwt inteartion
+// jwt integration
 app.post("/jwt", (req, res) => {
   const email = req.body;
   const token = jwt.sign(email, process.env.TOKEN_KEY, { expiresIn: "10d" });
@@ -47,13 +47,12 @@ const productsCollection = client.db("nano-shop").collection("products");
 // midleware
 const verifyToken = (req, res, next) => {
   const authorization = req.headers.authorization;
-//   console.log(authorization);
   if (!authorization) {
     return res.send({ massege: "unathorized user" });
   }
   const token = authorization.split(" ")[1];
   console.log("token", token);
-  
+
   if (!token) {
     return res.send({ massege: "no token" });
   }
@@ -98,10 +97,9 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
-    //   console.log(result);
     });
 
     app.patch("/users-role/:id", verifyToken, verifyAdmin, async (req, res) => {
@@ -136,7 +134,6 @@ async function run() {
 
     app.get("/user", async (req, res) => {
       const email = req.query.email;
-      // console.log(email);
 
       const query = { email: email };
       const result = await usersCollection.findOne(query);
@@ -148,12 +145,10 @@ async function run() {
       const sort = req.query.sort;
       const brand = req.query.brand;
       const category = req.query.category;
-      // console.log(search, sort, brand, category);
 
       let query = {};
       if (search) {
         query.title = { $regex: search, $options: "i" };
-        // query = { title: { $regex: search } };
       }
 
       if (brand) {
@@ -169,7 +164,6 @@ async function run() {
       const brandList = [...new Set(productInfo.map((p) => p.brand))];
       const categoryList = [...new Set(productInfo.map((p) => p.category))];
 
-      //   const sort = '';
       const sortOption = sort === "Assending" ? 1 : -1;
 
       const result = await productsCollection
@@ -199,7 +193,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/my-products", async (req, res) => {
+    app.get("/my-products", verifyToken, verifySeller, async (req, res) => {
       const email = req.query.email;
       let query = {};
       if (email) {
@@ -210,63 +204,109 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/my-products/:id", async (req, res) => {
-      const id = req.params.id;
-      let query = {};
-      if (id) {
-        query = { _id: new ObjectId(id) };
+    app.delete(
+      "/my-products/:id",
+      verifyToken,
+      verifySeller,
+      async (req, res) => {
+        const id = req.params.id;
+        let query = {};
+        if (id) {
+          query = { _id: new ObjectId(id) };
+        }
+
+        const result = await productsCollection.deleteOne(query);
+        res.send(result);
       }
+    );
 
-      const result = await productsCollection.deleteOne(query);
-      res.send(result);
-    });
+    app.put(
+      "/update-product/:id",
+      verifyToken,
+      verifySeller,
+      async (req, res) => {
+        const id = req.params.id;
+        const body = req.body;
+        let query = {};
+        if (id) {
+          query = { _id: new ObjectId(id) };
+        }
+        const updateDoc = {
+          $set: body,
+        };
 
-    app.put("/update-product/:id", async (req, res) => {
-      const id = req.params.id;
-      const body = req.body;
-      let query = {};
-      if (id) {
-        query = { _id: new ObjectId(id) };
+        const result = await productsCollection.updateOne(query, updateDoc);
+        res.send(result);
       }
-      const updateDoc = {
-        $set: body
-      };
+    );
 
-      const result = await productsCollection.updateOne(query, updateDoc);
-      res.send(result);
-    });
-
-    app.patch("/update-wishlist", async (req, res) => {
-    const {userEmail, productId} = req.body;
+    app.patch("/update-wishlist", verifyToken, async (req, res) => {
+      const { userEmail, productId } = req.body;
       let query = {};
       if (userEmail) {
         query = { email: userEmail };
       }
       const updateDoc = {
-        $addToSet: {wishlist: new ObjectId(String(productId))}
+        $addToSet: { wishlist: new ObjectId(String(productId)) },
       };
 
-      const result = await usersCollection.updateOne(query, updateDoc, {upsert: true});
+      const result = await usersCollection.updateOne(query, updateDoc, {
+        upsert: true,
+      });
       res.send(result);
     });
 
-    app.get("/my-wishlist/:userId", async (req, res) => {
-        const id = req.params.userId;
-        console.log('id', id);
-        
+    app.get("/my-wishlist/:userId", verifyToken, async (req, res) => {
+      const id = req.params.userId;
 
-        const user = await usersCollection.findOne({_id: new ObjectId(String(id))}, );
-
-        if(!user){
-           return res.send({message: "user not found"})
-        }
-        
-        const wishlist = await productsCollection.find({_id: {$in: user.wishlist || []}}).toArray();
-
-        res.send(wishlist);
+      const user = await usersCollection.findOne({
+        _id: new ObjectId(String(id)),
       });
 
+      if (!user) {
+        return res.send({ message: "user not found" });
+      }
 
+      const wishlist = await productsCollection
+        .find({ _id: { $in: user.wishlist || [] } })
+        .toArray();
+
+      res.send(wishlist);
+    });
+
+    app.patch("/update-cart", verifyToken, async (req, res) => {
+      const { userEmail, productId } = req.body;
+      let query = {};
+      if (userEmail) {
+        query = { email: userEmail };
+      }
+      const updateDoc = {
+        $addToSet: { myCart: new ObjectId(String(productId)) },
+      };
+
+      const result = await usersCollection.updateOne(query, updateDoc, {
+        upsert: true,
+      });
+      res.send(result);
+    });
+
+    app.get("/my-cart/:userId", verifyToken, async (req, res) => {
+      const id = req.params.userId;
+
+      const user = await usersCollection.findOne({
+        _id: new ObjectId(String(id)),
+      });
+
+      if (!user) {
+        return res.send({ message: "user not found" });
+      }
+
+      const myCart = await productsCollection
+        .find({ _id: { $in: user.myCart || [] } })
+        .toArray();
+
+      res.send(myCart);
+    });
   } finally {
   }
 }
