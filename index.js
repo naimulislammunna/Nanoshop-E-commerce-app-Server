@@ -8,7 +8,9 @@ const jwt = require("jsonwebtoken");
 const app = express();
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: ["https://nano-shop-57e10.web.app", "http://localhost:5173"],
+    optionsSuccessStatus: 200,
+    credentials: true
   })
 );
 app.use(express.json());
@@ -97,12 +99,12 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/users", async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
 
-    app.patch("/users-role/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.patch("/users-role/:id", async (req, res) => {
       const id = req.params.id;
 
       let query = {};
@@ -120,7 +122,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.delete("/users/:id",  async (req, res) => {
       const id = req.params.id;
 
       let query = {};
@@ -186,14 +188,14 @@ async function run() {
     });
 
     // product add to db
-    app.post("/add-product", verifyToken, verifySeller, async (req, res) => {
+    app.post("/add-product", async (req, res) => {
       const body = req.body;
 
       const result = await productsCollection.insertOne(body);
       res.send(result);
     });
 
-    app.get("/my-products", verifyToken, verifySeller, async (req, res) => {
+    app.get("/my-products",  async (req, res) => {
       const email = req.query.email;
       let query = {};
       if (email) {
@@ -206,8 +208,7 @@ async function run() {
 
     app.delete(
       "/my-products/:id",
-      verifyToken,
-      verifySeller,
+    
       async (req, res) => {
         const id = req.params.id;
         let query = {};
@@ -222,8 +223,7 @@ async function run() {
 
     app.put(
       "/update-product/:id",
-      verifyToken,
-      verifySeller,
+    
       async (req, res) => {
         const id = req.params.id;
         const body = req.body;
@@ -240,7 +240,7 @@ async function run() {
       }
     );
 
-    app.patch("/update-wishlist", verifyToken, async (req, res) => {
+    app.patch("/update-wishlist", async (req, res) => {
       const { userEmail, productId } = req.body;
       let query = {};
       if (userEmail) {
@@ -256,7 +256,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/my-wishlist/:userId", verifyToken, async (req, res) => {
+    app.get("/my-wishlist/:userId", async (req, res) => {
       const id = req.params.userId;
 
       const user = await usersCollection.findOne({
@@ -274,7 +274,7 @@ async function run() {
       res.send(wishlist);
     });
 
-    app.patch("/update-cart", verifyToken, async (req, res) => {
+    app.patch("/update-cart",  async (req, res) => {
       const { userEmail, productId } = req.body;
       let query = {};
       if (userEmail) {
@@ -290,7 +290,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/my-cart/:userId", verifyToken, async (req, res) => {
+    app.get("/my-cart/:userId", async (req, res) => {
       const id = req.params.userId;
 
       const user = await usersCollection.findOne({
@@ -307,6 +307,25 @@ async function run() {
 
       res.send(myCart);
     });
+
+    app.patch("/delete-cart-list", async (req, res) => {
+      const { userEmail, productId } = req.body;
+      let query = {};
+      if (userEmail) {
+        query = { email: userEmail };
+      }
+      
+      const deleteDoc = {
+        $pull: { myCart: new ObjectId(String(productId)) },
+      };
+
+      const result = await usersCollection.updateOne(query, deleteDoc, {
+        upsert: true,
+
+      });
+      res.send(result);
+    });
+
   } finally {
   }
 }
