@@ -206,14 +206,13 @@ async function run() {
       res.send(result);
     });
 
-    app.delete(
-      "/my-products/:id",
-    
-      async (req, res) => {
+    app.delete("/my-products/:id", async (req, res) => {
         const id = req.params.id;
+        console.log('delete', id);
+        
         let query = {};
         if (id) {
-          query = { _id: new ObjectId(id) };
+          query = { _id: new ObjectId(String(id)) };
         }
 
         const result = await productsCollection.deleteOne(query);
@@ -221,15 +220,14 @@ async function run() {
       }
     );
 
-    app.put(
-      "/update-product/:id",
-    
-      async (req, res) => {
+    app.put("/update-product/:id", async (req, res) => {
         const id = req.params.id;
+        console.log('put',id);
+        
         const body = req.body;
         let query = {};
         if (id) {
-          query = { _id: new ObjectId(id) };
+          query = { _id: new ObjectId(String(id)) };
         }
         const updateDoc = {
           $set: body,
@@ -275,13 +273,24 @@ async function run() {
     });
 
     app.patch("/update-cart",  async (req, res) => {
-      const { userEmail, productId } = req.body;
+      const { userEmail, productId, img, title, price, ram, storage, color,  quantity} = req.body;
       let query = {};
       if (userEmail) {
         query = { email: userEmail };
       }
+      const myCart = {
+        id: new ObjectId(String(productId)),
+        img,
+        title,
+        price,
+        ram,
+        storage,
+        color,
+        quantity
+      }
+
       const updateDoc = {
-        $addToSet: { myCart: new ObjectId(String(productId)) },
+        $addToSet: { myCart },
       };
 
       const result = await usersCollection.updateOne(query, updateDoc, {
@@ -301,11 +310,12 @@ async function run() {
         return res.send({ message: "user not found" });
       }
 
-      const myCart = await productsCollection
-        .find({ _id: { $in: user.myCart || [] } })
-        .toArray();
+      // const myCart = await productsCollection
+      //   .find({ _id: { $in: user.myCart.map((item) => item.id) || [] } })
+      //   .toArray();
 
-      res.send(myCart);
+      res.send(user.myCart);
+      
     });
 
     app.patch("/delete-cart-list", async (req, res) => {
@@ -314,9 +324,12 @@ async function run() {
       if (userEmail) {
         query = { email: userEmail };
       }
+      // const myCart = {
+      //   id: new ObjectId(String(productId))
+      // }
       
       const deleteDoc = {
-        $pull: { myCart: new ObjectId(String(productId)) },
+        $pull: { myCart: {id: new ObjectId(productId)}  },
       };
 
       const result = await usersCollection.updateOne(query, deleteDoc, {
