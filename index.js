@@ -317,6 +317,22 @@ async function run() {
       res.send({ success: true, message: "Product added to cart", result });
     });
 
+    
+    app.get("/my-order/:userId", async (req, res) => {
+      const id = req.params.userId;
+
+      const user = await usersCollection.findOne({
+        _id: new ObjectId(String(id)),
+      });
+
+      if (!user) {
+        return res.send({ message: "user not found" });
+      }
+
+      res.send(user.myOrder);
+    });
+
+
     app.patch("/update-order", async (req, res) => {
       const {
         userEmail,
