@@ -10,7 +10,7 @@ app.use(
   cors({
     origin: ["https://nano-shop-57e10.web.app", "http://localhost:5173"],
     optionsSuccessStatus: 200,
-    credentials: true
+    credentials: true,
   })
 );
 app.use(express.json());
@@ -122,7 +122,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/users/:id",  async (req, res) => {
+    app.delete("/users/:id", async (req, res) => {
       const id = req.params.id;
 
       let query = {};
@@ -195,7 +195,7 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/my-products",  async (req, res) => {
+    app.get("/my-products", async (req, res) => {
       const email = req.query.email;
       let query = {};
       if (email) {
@@ -207,36 +207,34 @@ async function run() {
     });
 
     app.delete("/my-products/:id", async (req, res) => {
-        const id = req.params.id;
-        console.log('delete', id);
-        
-        let query = {};
-        if (id) {
-          query = { _id: new ObjectId(String(id)) };
-        }
+      const id = req.params.id;
+      console.log("delete", id);
 
-        const result = await productsCollection.deleteOne(query);
-        res.send(result);
+      let query = {};
+      if (id) {
+        query = { _id: new ObjectId(String(id)) };
       }
-    );
+
+      const result = await productsCollection.deleteOne(query);
+      res.send(result);
+    });
 
     app.put("/update-product/:id", async (req, res) => {
-        const id = req.params.id;
-        console.log('put',id);
-        
-        const body = req.body;
-        let query = {};
-        if (id) {
-          query = { _id: new ObjectId(String(id)) };
-        }
-        const updateDoc = {
-          $set: body,
-        };
+      const id = req.params.id;
+      console.log("put", id);
 
-        const result = await productsCollection.updateOne(query, updateDoc);
-        res.send(result);
+      const body = req.body;
+      let query = {};
+      if (id) {
+        query = { _id: new ObjectId(String(id)) };
       }
-    );
+      const updateDoc = {
+        $set: body,
+      };
+
+      const result = await productsCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
 
     app.patch("/update-wishlist", async (req, res) => {
       const { userEmail, productId } = req.body;
@@ -272,8 +270,18 @@ async function run() {
       res.send(wishlist);
     });
 
-    app.patch("/update-cart",  async (req, res) => {
-      const { userEmail, productId, img, title, price, ram, storage, color,  quantity} = req.body;
+    app.patch("/update-cart", async (req, res) => {
+      const {
+        userEmail,
+        productId,
+        img,
+        title,
+        price,
+        ram,
+        storage,
+        color,
+        quantity,
+      } = req.body;
       let query = {};
       if (userEmail) {
         query = { email: userEmail };
@@ -286,17 +294,63 @@ async function run() {
         ram,
         storage,
         color,
-        quantity
-      }
+        quantity,
+      };
 
       const updateDoc = {
         $addToSet: { myCart },
       };
 
+      const existingProduct = await usersCollection.findOne(query, {
+        projection: { myCart: 1 },
+      });
+
+      if (
+        existingProduct.myCart.some((item) => item.id.toString() === productId)
+      ) {
+        return res.send({ success: false, message: "Product already in cart" });
+      }
+
       const result = await usersCollection.updateOne(query, updateDoc, {
         upsert: true,
       });
-      res.send(result);
+      res.send({ success: true, message: "Product added to cart", result });
+    });
+
+    app.patch("/update-order", async (req, res) => {
+      const {
+        userEmail,
+        cartData,
+        formData,
+        subtotal,
+        totalPrice,
+        totalQuantity,
+        status,
+        date,
+      } = req.body;
+
+      let query = {};
+      if (userEmail) {
+        query = { email: userEmail };
+      }
+
+      const myOrder = {
+        cartData,
+        formData,
+        subtotal,
+        totalPrice,
+        totalQuantity,
+        status,
+        date,
+      };
+      const updateDoc = {
+        $addToSet: { myOrder },
+      };
+
+      const result = await usersCollection.updateOne(query, updateDoc, {
+        upsert: true,
+      });
+      res.send({ success: true, message: "Order Complete", result });
     });
 
     app.get("/my-cart/:userId", async (req, res) => {
@@ -315,7 +369,6 @@ async function run() {
       //   .toArray();
 
       res.send(user.myCart);
-      
     });
 
     app.patch("/delete-cart-list", async (req, res) => {
@@ -324,21 +377,16 @@ async function run() {
       if (userEmail) {
         query = { email: userEmail };
       }
-      // const myCart = {
-      //   id: new ObjectId(String(productId))
-      // }
-      
+
       const deleteDoc = {
-        $pull: { myCart: {id: new ObjectId(productId)}  },
+        $pull: { myCart: { id: new ObjectId(String(productId)) } },
       };
 
       const result = await usersCollection.updateOne(query, deleteDoc, {
         upsert: true,
-
       });
       res.send(result);
     });
-
   } finally {
   }
 }
