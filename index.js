@@ -4,6 +4,7 @@ const port = process.env.port || 4000;
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
+const { default: axios } = require("axios");
 
 const app = express();
 app.use(
@@ -14,6 +15,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(express.urlencoded());
 
 app.get("/", (req, res) => {
   res.send("Server is ok ");
@@ -317,7 +319,6 @@ async function run() {
       res.send({ success: true, message: "Product added to cart", result });
     });
 
-    
     app.get("/my-order/:userId", async (req, res) => {
       const id = req.params.userId;
 
@@ -331,7 +332,6 @@ async function run() {
 
       res.send(user.myOrder);
     });
-
 
     app.patch("/update-order", async (req, res) => {
       const {
@@ -403,6 +403,63 @@ async function run() {
       });
       res.send(result);
     });
+
+    app.post(`/payment`, async (req, res) => {
+      const paymentData = {
+        store_id: "nanos68ebe9f50b13d",
+        store_passwd: "nanos68ebe9f50b13d@ssl",
+        total_amount: 100,
+        currency: "EUR",
+        tran_id: "REF123",
+        success_url: "http://localhost:4000/sucess-payment",
+        fail_url: "http://yoursite.com/fail.php",
+        cancel_url: "http://yoursite.com/cancel.php",
+        cus_name: "Customer Name",
+        cus_email: "cust@yahoo.com",
+        cus_add1: "Dhaka",
+        cus_add2: "Dhaka",
+        cus_city: "Dhaka",
+        cus_state: "Dhaka",
+        cus_postcode: "1000",
+        cus_country: "Bangladesh",
+        cus_phone: "01711111111",
+        cus_fax: "01711111111",
+        ship_name: "Customer Name",
+        ship_add1: "Dhaka",
+        ship_add2: "Dhaka",
+        ship_city: "Dhaka",
+        ship_state: "Dhaka",
+        ship_postcode: "1000",
+        shipping_method: "NO",
+        product_name: "phone",
+        product_category: "mobile",
+        product_profile:"general",
+        ship_country: "Bangladesh",
+        multi_card_name: "mastercard,visacard,amexcard",
+        value_a: "ref001_A",
+        value_b: "ref002_B",
+        value_c: "ref003_C",
+        value_d: "ref004_D",
+      };
+
+     const response = await  axios({
+      method: "POST",
+      url: "https://sandbox.sslcommerz.com/gwprocess/v4/api.php",
+      data: paymentData,
+      headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
+     })
+     res.send({paymentURL: response.data.GatewayPageURL});
+    
+     
+    });
+
+    app.post('/sucess-payment', (req, res)=>{
+      const sucess = req.body;
+      console.log('success', sucess);
+      
+    })
   } finally {
   }
 }
